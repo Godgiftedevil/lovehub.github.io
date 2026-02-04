@@ -1,0 +1,531 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { Heart, Volume2, VolumeX, ChevronLeft, ChevronRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { getProposal } from "@/lib/proposal-storage";
+import { ProposalData, planLimits } from "@/lib/proposal-types";
+import { useParams } from "next/navigation";
+
+// Floating hearts component
+const FloatingHearts = ({ count = 20 }: { count?: number }) => {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      {[...Array(count)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute text-pink-300/40"
+          initial={{ 
+            x: `${Math.random() * 100}%`, 
+            y: "110%",
+            scale: 0.3 + Math.random() * 0.7,
+            rotate: Math.random() * 360
+          }}
+          animate={{ 
+            y: "-10%",
+            rotate: Math.random() * 360
+          }}
+          transition={{
+            duration: 8 + Math.random() * 8,
+            repeat: Infinity,
+            delay: Math.random() * 5,
+            ease: "linear"
+          }}
+        >
+          <Heart className="w-6 h-6 fill-current" />
+        </motion.div>
+      ))}
+    </div>
+  );
+};
+
+// Confetti component
+const Confetti = () => {
+  const colors = ["#ff6b6b", "#ff8787", "#ffa8a8", "#ffcccc", "#ff69b4", "#ff1493", "#ffd700", "#ff6347"];
+  
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-50">
+      {[...Array(100)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-3 h-3"
+          style={{ 
+            backgroundColor: colors[Math.floor(Math.random() * colors.length)],
+            left: `${Math.random() * 100}%`,
+            borderRadius: Math.random() > 0.5 ? "50%" : "0%",
+          }}
+          initial={{ 
+            y: -20,
+            x: 0,
+            rotate: 0,
+            opacity: 1
+          }}
+          animate={{ 
+            y: "100vh",
+            x: (Math.random() - 0.5) * 200,
+            rotate: Math.random() * 720,
+            opacity: 0
+          }}
+          transition={{
+            duration: 2 + Math.random() * 2,
+            delay: Math.random() * 0.5,
+            ease: "easeOut"
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// Heart burst animation
+const HeartBurst = () => {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-50 flex items-center justify-center">
+      {[...Array(30)].map((_, i) => {
+        const angle = (i / 30) * Math.PI * 2;
+        const distance = 100 + Math.random() * 200;
+        return (
+          <motion.div
+            key={i}
+            className="absolute text-red-500"
+            initial={{ 
+              scale: 0,
+              x: 0,
+              y: 0,
+              opacity: 1
+            }}
+            animate={{ 
+              scale: [0, 1.5, 1],
+              x: Math.cos(angle) * distance,
+              y: Math.sin(angle) * distance,
+              opacity: [1, 1, 0]
+            }}
+            transition={{
+              duration: 1.5,
+              ease: "easeOut"
+            }}
+          >
+            <Heart className="w-8 h-8 fill-current" />
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Photo slideshow component
+const PhotoSlideshow = ({ 
+  photos, 
+  captions 
+}: { 
+  photos: string[]; 
+  captions: string[];
+}) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+
+  useEffect(() => {
+    if (!isAutoPlaying || photos.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % photos.length);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isAutoPlaying, photos.length]);
+
+  if (photos.length === 0) return null;
+
+  return (
+    <div 
+      className="relative w-full max-w-md mx-auto"
+      onMouseEnter={() => setIsAutoPlaying(false)}
+      onMouseLeave={() => setIsAutoPlaying(true)}
+    >
+      <div className="aspect-square rounded-2xl overflow-hidden bg-black/20 shadow-2xl">
+        <AnimatePresence mode="wait">
+          <motion.img
+            key={currentIndex}
+            src={photos[currentIndex]}
+            alt={captions[currentIndex] || `Memory ${currentIndex + 1}`}
+            className="w-full h-full object-cover"
+            initial={{ opacity: 0, scale: 1.1 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.5 }}
+          />
+        </AnimatePresence>
+      </div>
+      
+      {captions[currentIndex] && (
+        <motion.p
+          key={`caption-${currentIndex}`}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mt-4 text-white/90 text-lg italic"
+        >
+          &ldquo;{captions[currentIndex]}&rdquo;
+        </motion.p>
+      )}
+
+      {photos.length > 1 && (
+        <>
+          <button
+            onClick={() => setCurrentIndex((prev) => (prev - 1 + photos.length) % photos.length)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <button
+            onClick={() => setCurrentIndex((prev) => (prev + 1) % photos.length)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          
+          {/* Dots indicator */}
+          <div className="flex items-center justify-center gap-2 mt-4">
+            {photos.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentIndex(index)}
+                className={`w-2 h-2 rounded-full transition-all ${
+                  index === currentIndex 
+                    ? "bg-white w-6" 
+                    : "bg-white/50 hover:bg-white/70"
+                }`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// NO button that runs away
+const RunawayNoButton = ({ onClick }: { onClick: () => void }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isRunning, setIsRunning] = useState(false);
+
+  const handleMouseEnter = () => {
+    if (!containerRef.current) return;
+    
+    setIsRunning(true);
+    const container = containerRef.current.parentElement;
+    if (!container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const buttonWidth = 100;
+    const buttonHeight = 50;
+    
+    const maxX = containerRect.width - buttonWidth - 20;
+    const maxY = containerRect.height - buttonHeight - 20;
+    
+    const newX = Math.random() * maxX;
+    const newY = Math.random() * maxY;
+    
+    setPosition({ x: newX, y: newY });
+    
+    setTimeout(() => setIsRunning(false), 300);
+  };
+
+  return (
+    <div ref={containerRef}>
+      <motion.div
+        animate={{ x: position.x, y: position.y }}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+        className="inline-block"
+      >
+        <Button
+          variant="outline"
+          size="lg"
+          onMouseEnter={handleMouseEnter}
+          onClick={onClick}
+          className={`text-lg px-8 py-6 border-2 border-gray-400 text-gray-600 hover:bg-gray-100 transition-transform ${
+            isRunning ? "scale-90" : "scale-100"
+          }`}
+        >
+          No
+        </Button>
+      </motion.div>
+    </div>
+  );
+};
+
+export default function ProposalPage() {
+  const params = useParams();
+  const id = params.id as string;
+  
+  const [proposal, setProposal] = useState<ProposalData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showResponse, setShowResponse] = useState(false);
+  const [saidYes, setSaidYes] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const data = getProposal(id);
+    setProposal(data);
+    setLoading(false);
+  }, [id]);
+
+  const handleYes = () => {
+    setSaidYes(true);
+    setShowCelebration(true);
+    setShowResponse(true);
+    
+    // Play celebration sound could be added here
+    setTimeout(() => {
+      setShowCelebration(false);
+    }, 3000);
+  };
+
+  const handleNo = () => {
+    // NO button runs away, this is just a fallback
+  };
+
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+    if (audioRef.current) {
+      audioRef.current.muted = !isMuted;
+      if (isMuted) {
+        audioRef.current.play();
+      }
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen romantic-gradient-dark flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center"
+        >
+          <Heart className="w-16 h-16 text-pink-400 fill-pink-400 mx-auto mb-4 animate-pulse-heart" />
+          <p className="text-white/70">Loading your surprise...</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!proposal) {
+    return (
+      <div className="min-h-screen romantic-gradient-dark flex items-center justify-center">
+        <div className="text-center text-white">
+          <Heart className="w-16 h-16 text-pink-400 mx-auto mb-4 opacity-50" />
+          <h1 className="text-2xl font-bold mb-2">Proposal Not Found</h1>
+          <p className="text-white/70">This proposal link may have expired or doesn&apos;t exist.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const limits = planLimits[proposal.plan];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-pink-900 via-red-900 to-pink-800 relative overflow-hidden">
+      <FloatingHearts count={25} />
+      
+      {/* Background music (placeholder) */}
+      {limits.hasMusic && proposal.backgroundMusic !== "none" && (
+        <audio ref={audioRef} loop muted={isMuted}>
+          <source src="/audio/romantic.mp3" type="audio/mpeg" />
+        </audio>
+      )}
+
+      {/* Music toggle */}
+      {limits.hasMusic && proposal.backgroundMusic !== "none" && (
+        <button
+          onClick={toggleMute}
+          className="fixed top-4 right-4 z-50 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+        >
+          {isMuted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
+        </button>
+      )}
+
+      {/* Celebration effects */}
+      {showCelebration && (
+        <>
+          <Confetti />
+          <HeartBurst />
+        </>
+      )}
+
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
+        <AnimatePresence mode="wait">
+          {!showResponse ? (
+            <motion.div
+              key="proposal"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-2xl w-full text-center"
+            >
+              {/* Header */}
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring" }}
+                className="mb-8"
+              >
+                <Heart className="w-20 h-20 text-red-400 fill-red-400 mx-auto mb-4 animate-pulse-heart" />
+              </motion.div>
+
+              {/* Names */}
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="text-3xl md:text-5xl font-bold text-white mb-2"
+              >
+                {proposal.yourName} & {proposal.partnerName}
+              </motion.h1>
+              
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="flex items-center justify-center gap-3 mb-8"
+              >
+                <span className="w-12 h-0.5 bg-pink-400/50" />
+                <Heart className="w-4 h-4 text-pink-400 fill-pink-400" />
+                <span className="w-12 h-0.5 bg-pink-400/50" />
+              </motion.div>
+
+              {/* Message */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8"
+              >
+                <p className="text-lg md:text-xl text-white/90 leading-relaxed whitespace-pre-wrap">
+                  {proposal.message}
+                </p>
+              </motion.div>
+
+              {/* Photos (if not slideshow, show first photo) */}
+              {proposal.photos.length > 0 && !limits.hasSlideshow && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 1 }}
+                  className="mb-8"
+                >
+                  <div className="aspect-square max-w-xs mx-auto rounded-2xl overflow-hidden shadow-2xl">
+                    <img
+                      src={proposal.photos[0]}
+                      alt="Our memory"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Photo slideshow for premium */}
+              {limits.hasSlideshow && proposal.photos.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 1 }}
+                  className="mb-8"
+                >
+                  <PhotoSlideshow 
+                    photos={proposal.photos} 
+                    captions={proposal.photoCaptions} 
+                  />
+                </motion.div>
+              )}
+
+              {/* YES/NO Buttons */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.2 }}
+                className="relative h-32"
+              >
+                <p className="text-white/70 mb-6 text-lg">Will you be mine forever?</p>
+                
+                <div className="flex items-center justify-center gap-8 relative">
+                  <Button
+                    size="lg"
+                    onClick={handleYes}
+                    className="text-xl px-10 py-7 bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                  >
+                    <Heart className="w-5 h-5 mr-2 fill-white" />
+                    Yes!
+                  </Button>
+                  
+                  {limits.hasAnimatedButtons ? (
+                    <RunawayNoButton onClick={handleNo} />
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={handleNo}
+                      className="text-lg px-8 py-6 border-2 border-white/30 text-white/70 hover:bg-white/10"
+                    >
+                      No
+                    </Button>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="response"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="max-w-2xl w-full text-center"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.2, 1] }}
+                transition={{ duration: 0.5 }}
+              >
+                <Heart className="w-32 h-32 text-red-400 fill-red-400 mx-auto mb-6 animate-pulse-heart" />
+              </motion.div>
+              
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-4xl md:text-6xl font-bold text-white mb-4"
+              >
+                She/He Said YES!
+              </motion.h1>
+              
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="text-xl text-pink-200 mb-8"
+              >
+                ❤️ {proposal.yourName} & {proposal.partnerName} Forever ❤️
+              </motion.p>
+
+              {/* Show all photos after YES */}
+              {proposal.photos.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 }}
+                >
+                  <PhotoSlideshow 
+                    photos={proposal.photos} 
+                    captions={proposal.photoCaptions} 
+                  />
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
